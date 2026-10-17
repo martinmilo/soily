@@ -1,0 +1,79 @@
+# About the template itself: ./setup removes this file from a new project.
+#
+# A fresh copy of the template is set up as a new project; a first piece of work (one
+# test, a toy program) fails through bin/verify before the program exists and passes
+# after. Runs only in the template's own repository, never in a copy of it.
+name: Check the template
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  fresh-copy:
+    if: github.repository == 'martinmilo/soily'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, ruby: '3.0' }   # the oldest Ruby the kit supports
+          - { os: ubuntu-24.04, ruby: ruby }    # the latest stable Ruby
+          - { os: macos-latest, ruby: ruby }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+      - name: Syntax of the scripts and the kit
+        run: |
+          sh -n setup
+          sh -n work/bin/verify
+          git ls-files '*.rb' | while read -r file; do ruby -c "$file" > /dev/null; done
+      - name: Set up a fresh copy as a new project
+        run: |
+          ruby -e 'require "minitest"' 2> /dev/null || gem install minitest
+          git config --global user.name "Template check"
+          git config --global user.email "check@example.com"
+          project="$RUNNER_TEMP/vouchers"
+          mkdir "$project"
+          git archive HEAD | tar -x -C "$project"
+          cd "$project"
+          ./setup vouchers
+          for file in setup CONTRIBUTING.md .github/workflows/check.yml; do
+            if [ -e "$file" ]; then echo "setup left $file behind"; exit 1; fi
+          done
+          test -L work/FORMATS.md
+          test "$(git rev-list --count HEAD)" = 1
+          test -z "$(git status --porcelain)"
+          echo "PROJECT=$project" >> "$GITHUB_ENV"
+      - name: A first piece of work fails, then passes, through bin/verify
+        run: |
+          cd "$PROJECT"
+          git switch --quiet --create greeting
+          mkdir -p shape/test/vouchers
+          cat > shape/test/vouchers/greeting_test.rb <<'RUBY'
+          class GreetingTest < AcceptanceTest
+            test "hello greets the shop by name" do
+              cli "hello", "Corner Books"
+              assert_success
+              assert_stdout "Hello, Corner Books"
+            end
+          end
+          RUBY
+          if work/bin/verify; then echo "bin/verify passed before the program existed"; exit 1; fi
+          mkdir -p work/src
+          cat > work/src/vouchers <<'SH'
+          #!/bin/sh
+          [ "$1" = hello ] && echo "Hello, $2"
+          SH
+          cat > work/bin/build <<'SH'
+          #!/bin/sh
+          cd "$(dirname "$0")/.." && mkdir -p bin && cp src/vouchers bin/vouchers && chmod +x bin/vouchers
+          SH
+          chmod +x work/bin/build
+          work/bin/verify -v
+          git add --all
+          git commit --quiet --message "Greet the shop"
+          work/bin/verify --all

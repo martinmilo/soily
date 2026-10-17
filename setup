@@ -1,0 +1,86 @@
+#!/bin/sh
+# One-time setup of a project made from this template.
+#
+#   ./setup <program>        <program> is the executable the tests run, e.g. vouchers
+#
+# It checks the tools the kit needs, writes the program name where the kit reads it,
+# repairs the work/FORMATS.md link if it arrived as a plain file, starts a Git repository
+# on main when there is none, removes the template's own files (CONTRIBUTING.md, its CI
+# and itself), and commits.
+set -eu
+self="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+cd "$(dirname "$self")"
+
+program="${1:-}"
+if [ -z "$program" ]; then
+    printf 'Name of the executable the tests will run (e.g. vouchers): '
+    read -r program
+fi
+case "$program" in
+    ''|*[!A-Za-z0-9._-]*) echo "setup: the program name uses letters, digits, '.', '_' and '-' only, e.g. vouchers" >&2; exit 2 ;;
+esac
+
+missing=0
+need() { command -v "$1" >/dev/null 2>&1 || { echo "setup: $1 is needed and not on the PATH ($2)" >&2; missing=1; }; }
+need ruby "3.0 or later"
+need git  "2.28 or later"
+need diff "GNU diffutils or compatible"
+[ "$missing" -eq 0 ] || exit 1
+ruby -e 'exit(Gem::Version.new(RUBY_VERSION) >= Gem::Version.new("3.0"))' || { echo "setup: Ruby 3.0 or later is needed, this is $(ruby -e 'print RUBY_VERSION')" >&2; exit 1; }
+ruby -e 'require "minitest"' 2>/dev/null || { echo "setup: Minitest is needed: gem install minitest" >&2; exit 1; }
+git_version=$(git --version | sed 's/^git version //; s/ .*//')
+ruby -e 'exit(Gem::Version.new(ARGV[0].split(".").first(3).join(".")) >= Gem::Version.new("2.28"))' "$git_version" || { echo "setup: Git 2.28 or later is needed, this is $git_version" >&2; exit 1; }
+git var GIT_COMMITTER_IDENT >/dev/null 2>&1 || { echo "setup: Git has no identity to commit with. Set user.name and user.email first (git config --global user.name ...)." >&2; exit 1; }
+
+grep -q '^PROGRAM = "bin/program"' shape/test/test_helper.rb || { echo "setup: this project is already set up: $(sed -n 's/^PROGRAM = "\([^"]*\)".*/\1/p' shape/test/test_helper.rb) is the program." >&2; exit 1; }
+
+# Nothing is changed before this line.
+ruby -e 'name = ARGV.shift; ARGV.each { |f| File.write(f, File.read(f).gsub("bin/program", "bin/#{name}")) }' "$program" shape/test/test_helper.rb work/.gitignore work/AGENTS.md
+echo "The tests run work/bin/$program."
+
+if [ ! -L work/FORMATS.md ]; then
+    rm -f work/FORMATS.md
+    ln -s ../shape/FORMATS.md work/FORMATS.md
+    echo "work/FORMATS.md is now a link to shape/FORMATS.md."
+fi
+
+# Files about the template rather than the project. Each says so on its first line, so a
+# project's own file of the same name is left alone.
+removed=""
+for file in CONTRIBUTING.md .github/workflows/check.yml; do
+    if [ -f "$file" ] && head -n 1 "$file" | grep -q './setup removes this file'; then
+        rm -- "$file"
+        removed="$removed $file"
+        echo "Removed $file, which is about the template."
+    fi
+done
+rmdir .github/workflows .github 2>/dev/null || true
+rm -- "$self"
+
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    # Stage only what setup touched: the paths that exist, or that Git tracks and setup removed.
+    set --
+    for file in setup $removed shape/test/test_helper.rb work/.gitignore work/AGENTS.md work/FORMATS.md; do
+        if [ -e "$file" ] || [ -L "$file" ] || git ls-files --error-unmatch -- "$file" >/dev/null 2>&1; then
+            set -- "$@" "$file"
+        fi
+    done
+    git add --all -- "$@"
+    git commit --quiet --message "Set up from the shaper and worker template: the tests run bin/$program"
+    echo "Committed the setup. Anything else that was uncommitted is left as it was."
+else
+    git init --quiet --initial-branch=main
+    git add --all
+    git commit --quiet --message "Start from the shaper and worker template: the tests run bin/$program"
+    echo "Started a Git repository on main with one commit."
+fi
+
+cat <<NEXT
+
+Next:
+  1. Fill in "This project" at the end of work/AGENTS.md: the stack, what bin/build
+     must produce, the conventions. Commit it.
+  2. README.md describes the template. Rewrite it for your project.
+  3. Start the shaper in shape/ to agree the first piece of work and write its tests.
+  4. Start the worker in work/. It runs bin/verify -v and builds from there.
+NEXT

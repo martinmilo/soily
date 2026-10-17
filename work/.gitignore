@@ -1,0 +1,7 @@
+# Build output and the built program. Adjust to the stack, for example:
+#   /target/        Rust
+#   /node_modules/  Node
+#   /.venv/         Python
+# bin/program is where bin/build puts the executable the tests run. Drop the line below
+# when the program is a script committed at that path rather than something built.
+/bin/program
