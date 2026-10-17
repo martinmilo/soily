@@ -83,7 +83,9 @@ deletes `QUESTIONS.md`, so that the worker starts its next session clean.
 owner set it when the project was made from the template, and it is the same path the
 worker was told to build. Add a module in `test/support/` for the project's own commands
 (`vouchers.rb` with `redeem` and `issue`, as `TESTING.md` shows) and put it on the
-`include` line in `test_helper.rb`. The five modules the kit comes with depend on each
+`include` line in `test_helper.rb`. When the project is not run as a command (a web
+service, a background job runner, a library), that module is also what starts and drives
+it; section 1 of `TESTING.md` says how. The five modules the kit comes with depend on each
 other and stay together; everything else in `test/support/` is yours to grow, rename or
 replace.
 

@@ -1,4 +1,4 @@
-# Running the program, or any other executable in the work folder. The kit is for
+# Running the program, or any other executable in the work folder. These helpers drive
 # command-line programs: a command, in a folder, with files.
 #
 #   cli "redeem", "GIFT-2041"        the program (PROGRAM in test_helper.rb)

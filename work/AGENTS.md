@@ -34,9 +34,9 @@ Run it as often as you like. If `bin/build` exists and is executable, `bin/verif
 first; that script is yours to write, and a failing build stops the run.
 
 Start with `bin/verify -v`. Each test name is a sentence about what the program should do,
-so the list is your feature list. A failure then shows three things: what was run (the
-command line), what came back, and what was expected instead. Read it as a
-bug report from a user.
+so the list is your feature list. A failure then shows three things: what was done (a
+command line, a request, whatever the tests drive), what came back, and what was expected
+instead. Read it as a bug report from a user.
 
 ## How to work
 
@@ -83,14 +83,17 @@ tests did not cover, and anything you consider fragile.
 
 - **Stack:** <language and the main libraries, or "your choice">.
 - **Build:** `bin/build` must put the executable at `bin/program`, the path the tests run.
-  Write that script; `bin/verify` runs it before the tests.
+  Write that script; `bin/verify` runs it before the tests. <For a target that is not
+  run as a command: what the tests start or call, e.g. a service that listens on the
+  port given in `PORT`.>
 - **Conventions:** <what the program must or must not do: no network requests, no
   framework X, Git through the `git` command, ...>.
 - **Commits:** this folder and `../shape` are one repository. Commit on the
   branch you are started on; never switch branches and never push. Stage
   with `git add .` run from this folder. Never run `git diff`, `git show` or
   `git log -p` on paths outside this folder.
-- **Formats:** the files the program reads and writes are described in `FORMATS.md`,
-  when the project has any. The file is a link into `../shape`; read it, never edit it.
+- **Formats:** the files the program reads and writes, and the requests and responses it
+  handles, are described in `FORMATS.md`, when the project has any. The file is a link
+  into `../shape`; read it, never edit it.
 - **Questions:** `QUESTIONS.md` is yours to write and the owner's to delete once answered.
   If it is still there when you start, the answer is in the tests now; delete it.

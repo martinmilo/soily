@@ -23,10 +23,22 @@ user can observe, in the words the spec uses). It takes the tooling from neither
 Minitest, no Gherkin, no step definitions, no spec DSL. A second layer of files that maps
 sentences to code is plumbing, and plumbing is what we are removing.
 
-Tests run the built program the way a user would: a command, in a folder, with files. The
-kit is for command-line programs; a service would need helpers of its own. They
-never load its code, call its functions or read its private state. That is what lets the
-implementation change completely underneath them.
+Tests use what is built the way its users would: a command run in a folder with files,
+requests sent to a web service, jobs handed to a background job runner, calls to a
+library's public interface. They never reach past that interface into its internals:
+private functions, private state, the files or tables it keeps for itself. That is what
+lets the implementation change completely underneath them.
+
+The kit ships with helpers for programs run as a command, in a folder, with files, as a
+starting point. Any other kind of target gets a small helper module of the project's own
+in `test/support/`, on the `include` line in `test_helper.rb`. For a web service, that
+helper starts it on a free port once `bin/build` has built it, waits until it answers,
+sends requests, and asserts on the status and the body. A library is driven through a
+small harness program in `work/` that exposes its public interface as commands or
+requests, since the tests themselves are Ruby. Whatever the helper drives, its failures
+show what was sent and what came back, as the kit's transcript does for a command (section
+8), because that is all the worker sees. The rest of this file holds for any target; its
+examples are commands because those are what the kit's helpers run.
 
 Unit-level red-green-refactor is the worker's business, inside its own folder.
 
@@ -62,6 +74,9 @@ Assert what the behaviour promises, and nothing the program is free to change.
 | the part of stdout that carries the answer | the rest of the line, unless the spec fixes it |
 | the part of stderr that names the reason | the exact wording of the message, unless the spec fixes it |
 | files the command exists to produce, and that it wrote nothing else | files the program keeps for its own use |
+
+The table is written for a command. For a web service, the status takes the place of the
+exit code and the response body the place of stdout.
 
 Three rules follow.
 
@@ -156,6 +171,9 @@ A helper may check that its own setup worked. It never hides the action or the a
 the test is about; those stay visible in the test.
 
 ## 5. The vocabulary you start with
+
+These are the kit's helpers, for a program run as a command. Another kind of target adds
+its own words, as section 1 describes.
 
 | To | Write |
 |---|---|

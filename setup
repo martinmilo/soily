@@ -1,7 +1,8 @@
 #!/bin/sh
 # One-time setup of a project made from this template.
 #
-#   ./setup <program>        <program> is the executable the tests run, e.g. vouchers
+#   ./setup <program>        <program> is the executable the tests run (or start, for a
+#                            service), e.g. vouchers
 #
 # It checks the tools the kit needs, writes the program name where the kit reads it,
 # repairs the work/FORMATS.md link if it arrived as a plain file, starts a Git repository
