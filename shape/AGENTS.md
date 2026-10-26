@@ -36,13 +36,17 @@ record is old.
 
 1. **Talk first.** Read the most recent spec records and the tests for the area under
    discussion. Ask about what is unclear. Say so when a new idea contradicts an existing
-   test. Write no files until the direction is agreed.
+   test. Write no files until the direction is agreed. When no person is there, the spec
+   you were handed is the agreed direction: write the record and the tests from it, and
+   list in the record what you would have asked, as step 2 says.
 
 2. **Record it.** Write `spec/YYYY-MM-DD-HHMM-<topic>.md` containing what was decided and
    why, what was left out, what is still open, and a **scenario list**: one plain sentence
    per test you intend to write. Get the scenario list confirmed before writing any test.
-   It is the cheapest place to catch a misunderstanding. Never edit an older record; a new
-   one supersedes it.
+   It is the cheapest place to catch a misunderstanding. When no person is there to
+   confirm the scenario list, check it yourself against section 2 of `TESTING.md`,
+   question 8 included, and write into the record the questions you would have asked.
+   Never edit an older record; a new one supersedes it.
 
 3. **Write the tests.** Read `TESTING.md` in full before the first test of a session and
    follow it. It covers how to choose tests, what to assert, and how a test must read.

@@ -45,21 +45,38 @@ Unit-level red-green-refactor is the worker's business, inside its own folder.
 ## 2. Choosing which tests to write
 
 Start from the scenario list in the spec record. For each behaviour, ask these in order and
-write one test per answer:
+write one test per answer. The first seven look at the behaviour on its own; the eighth
+looks at where it meets other rules:
 
 1. **What does success look like, and what does it leave behind?**
 2. **What can refuse it?** One test per rule. Each asserts the reason, and that the refusal
-   left nothing behind.
+   left nothing behind (for races, see section 8).
 3. **Where are the limits?** For each limit, the last value that is allowed and the first
-   that is not.
+   that is not. Some kinds of input have hard values of their own; where the spec accepts
+   one of them, those are limits too, each with its own sentence in the scenario list:
+   - dates and times: the day the clock skips an hour and the day it repeats one, offsets
+     that are not whole hours, the last day of February in leap and other years, the turn
+     of a year;
+   - text: length counted in characters, not bytes; characters outside the basic range,
+     such as accents, other scripts and emoji;
+   - amounts: zero, the smallest unit, the largest allowed.
 4. **What if it happens twice?**
 5. **Which starting states change the answer?** One test per state that does.
 6. **What about none?** No items, a missing optional input, an empty file.
 7. **What must never happen?** An overwrite, a partial write, a file touched that should
    have been left alone.
+8. **Which other rules does this one meet?** Where two rules act on the same thing (a limit
+   and a cancellation, a repeat and a limit, a date rule and an all-or-nothing write), write
+   one test for each meeting that changes the answer. When a new rule changes the outcome
+   of an existing test, change that test in the same piece of work and name it in the spec
+   record. Section 9.7 has an example.
 
-Then stop. Leave out random or fuzzed input, malformed bytes, races, load, and every
-combination of options that do not interact, unless a spec record asks for them.
+Then stop. Leave out random or fuzzed input, malformed bytes, load, and combinations of
+options that do not interact, unless a spec record asks for them. Races are the exception:
+when the spec says something holds at any time, never happens, or happens exactly once, or
+when more than one copy of the program can work on the same data, test it with copies
+started separately and running at once, not only with parallel requests to one copy.
+Section 9.8 shows how.
 
 The test for a test: you can point at the sentence in a spec record that it protects. If
 you cannot, either the spec is missing a sentence (raise it) or the test is not needed.
@@ -82,8 +99,12 @@ Three rules follow.
 
 - **A refusal asserts its reason.** An exit code alone passes when the program refuses for
   the wrong reason.
-- **Exact, whole-output comparison is for output whose layout is the feature**: a rendered
-  view, a generated file. Everything else is asserted by the piece that matters.
+- **Exact, whole-output comparison is for output whose layout is the feature** (a rendered
+  view, a generated file) **and for output the spec promises to repeat exactly**: compare
+  it as text, byte for byte, not as parsed values. For a repeat, the first answer is the
+  expected one: keep it (`receipt = stdout`) and compare the next with it
+  (`assert_stdout_is receipt`). That is the one expected value a test does not write out.
+  Everything else is asserted by the piece that matters.
 - **Observe through the interface a user has.** If `list` shows that a voucher is redeemed,
   do not open the file the program stores it in. Read a file only when the file is the
   product.
@@ -114,10 +135,14 @@ end
   outcome.
 - **No plumbing.** A test file has no `require`, and no `Open3`, `JSON`, `YAML`, `File`,
   `Dir` or `ENV`. If you need one of them, a helper is missing.
-- **No logic.** No `if`, no `rescue`, no loops inside a test. The one exception is the table
-  in section 9.3.
+- **No logic.** No `if`, no `rescue`, no loops inside a test.
+- **When cases differ only in their data, write a table, never separate copies** (section
+  9.3). The table's loop sits around the tests, not inside one. Each row still becomes a
+  test with a full-sentence name, so the worker's feedback is the same, and a row is one
+  line instead of a test body.
 - **Expected values are written out.** Never compute them, and never read them from the
   same fixture the program reads. The reader should see the expected value on the line.
+  The one exception is an answer the spec promises to repeat (section 3).
 - **Realistic data.** Emma Clarke with a 50 € voucher, never `foo`, `test@test.com` or
   `Company A`. Show only the values the behaviour depends on; give the rest defaults in a
   helper.
@@ -227,7 +252,8 @@ program.
 
 Run `ruby test/run.rb` and go through this list.
 
-- Every new test fails, and for the reason its name gives.
+- Every new test fails, and so does every existing test whose outcome you changed, each for
+  the reason its name gives.
 - Each failure can be understood by someone who has never seen the test. This is what the
   worker gets:
 
@@ -247,10 +273,14 @@ Run `ruby test/run.rb` and go through this list.
   needs the test body to make sense, rename the test or improve the helper's message.
 - Read the names of the new tests in a row (`ruby test/run.rb -v`). They should read as a
   description of the feature.
-- No test file contains plumbing, logic or a computed expectation.
-- Every refusal asserts its reason and what was left behind.
+- No test file contains plumbing or a computed expectation, and no test contains logic; a
+  table sits around the tests it makes.
+- Every refusal asserts its reason and what was left behind. In a race the other copy
+  writes, so instead of "nothing written", assert the state once both copies are done,
+  through the interface: `list` shows the voucher redeemed (section 9.8).
 - Nothing depends on today's date, on test order, or on another test's data.
-- Tests that already passed still pass (`ruby test/run.rb --all`).
+- Tests that already passed, and that you did not change, still pass
+  (`ruby test/run.rb --all`).
 
 ## 9. Examples
 
@@ -336,8 +366,9 @@ broken and the test stays green.
 
 ### 9.3 The same rule, several values
 
-When cases differ only in their data, a small table is clearer than four copies. Each row
-must produce a full sentence as its test name.
+When cases differ only in their data, write a table, never separate copies. Each row still
+becomes a test with a full-sentence name, so the worker's feedback is the same as from
+separate tests, and a row is one line where a copy would be a whole test body.
 
 ```ruby
 { 9 => "at least 10", 501 => "at most 500" }.each do |amount, limit|
@@ -359,8 +390,8 @@ end
 end
 ```
 
-Use this for limits and equivalent inputs only. If the rows need different steps or
-different assertions, they are different tests.
+Tables are for limits and equivalent inputs. If the rows need different steps or different
+assertions, they are different tests.
 
 ### 9.4 A command inside a Git repository
 
@@ -487,3 +518,120 @@ end
 `test/expected/list_shop.txt` is typed out from the spec. On failure the worker gets a
 line-by-line diff. Keep these few: each one freezes every character of the output, so use
 one per layout the spec defines, and assert the rest by the piece that matters.
+
+### 9.7 Rules that meet
+
+A customer may hold at most three active vouchers, and a refunded voucher no longer counts.
+Each rule is tested on its own elsewhere; these tests are for the place where they meet.
+
+Good:
+
+```ruby
+class VoucherLimitTest < AcceptanceTest
+  # Emma Clarke holds three active vouchers, GIFT-2041 among them; Liam Novak holds GIFT-3050.
+  def setup = workspace("emma_at_limit")
+
+  test "a customer at the limit is issued a voucher after refunding one" do
+    refund "GIFT-2041"
+
+    issue 50, to: "emma.clarke@example.com"
+
+    assert_success
+  end
+
+  test "one refund makes room for one new voucher, not two" do
+    refund "GIFT-2041"
+    issue 50, to: "emma.clarke@example.com"
+
+    issue 50, to: "emma.clarke@example.com"
+
+    assert_exit 1
+    assert_stderr "at most 3 active vouchers"
+    assert_nothing_written
+  end
+
+  test "refunding another customer's voucher makes no room" do
+    refund "GIFT-3050"
+
+    issue 50, to: "emma.clarke@example.com"
+
+    assert_exit 1
+    assert_stderr "at most 3 active vouchers"
+    assert_nothing_written
+  end
+end
+```
+
+The first two need each other: a refund that makes no room fails the first, and one that
+makes room for two fails the second.
+
+Bad:
+
+```ruby
+test "a customer with three active vouchers is refused a fourth" do
+  issue 50, to: "emma.clarke@example.com"
+
+  assert_exit 1
+  assert_stderr "at most 3 active vouchers"
+  assert_nothing_written
+end
+
+test "a refunded voucher is listed as refunded" do
+  refund "GIFT-2041"
+
+  cli "list"
+  assert_stdout(/GIFT-2041 .+ refunded/)
+end
+```
+
+Each test is right, and each rule is covered. Both pass for a program that keeps counting
+refunded vouchers towards the limit, because no test lets the two rules meet.
+
+### 9.8 Something that must hold at any time
+
+The spec says a voucher is redeemed once, never twice. The shop runs the program at two
+tills on the same shop folder, so two copies can redeem the same voucher at the same moment.
+
+Good:
+
+```ruby
+class RedeemAtOnceTest < AcceptanceTest
+  def setup = workspace("shop") # GIFT-2041 is active
+
+  test "when two copies redeem the same voucher at the same moment, exactly one succeeds" do
+    redeem_twice_at_once "GIFT-2041"
+
+    assert_one_succeeded_and_one_refused "already redeemed"
+
+    cli "list"
+    assert_stdout(/GIFT-2041 .+ redeemed/)
+  end
+end
+```
+
+`redeem_twice_at_once` is a helper in the `Vouchers` module: it starts two copies of the
+program on the test's folder at the same moment, both on the date `redeem` pins, waits for
+both, and keeps each copy's result for the assertion after it (also in `Vouchers`), which
+on failure prints the command, exit code, stdout and stderr of both copies. The plumbing
+lives there; the test says only what happens. The copy that won wrote, so instead of
+`assert_nothing_written`, `list` shows the state once both are done. For a web service, the
+helper starts two copies of the service on the same data, not two requests to one copy: a
+lock kept in one copy's memory passes two requests to that copy and still lets two copies
+redeem the same voucher.
+
+Bad:
+
+```ruby
+test "a voucher redeemed twice at the same moment is redeemed once" do
+  redeem "GIFT-2041"
+  redeem "GIFT-2041"
+
+  assert_exit 1
+  assert_stderr "already redeemed"
+end
+```
+
+The name promises two redemptions at once, and the body runs them one after the other. The
+second starts only after the first has finished writing, so the test passes for a program
+that reads the voucher, decides, and writes it back with nothing to stop a second copy in
+between. What it does test is question 4 of section 2, which has its own test already.

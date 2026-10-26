@@ -26,10 +26,14 @@ or requests, since the tests themselves are Ruby.
 
 ## Status
 
-0.1.1, an early public release. The layout came out of a project that is still built
+0.2.0, an early public release. The layout came out of a project that is still built
 this way; the kit and the agents' instructions may change before 1.0. It works with any
 coding agent that reads `AGENTS.md` or `CLAUDE.md`, and the tests use Ruby's Minitest
 whatever language the program is written in.
+
+0.2.0 changes how the shaper chooses tests: it now tests where two rules meet, races
+between copies of the program started separately, and output promised to repeat exactly,
+and it writes a table for cases that differ only in their data.
 
 ## How a piece of work flows
 
